@@ -1,2 +1,12 @@
-target
-mango
+# zig
+.zig-cache/
+zig-out/
+/release/
+/debug/
+/build/
+/build-*/
+
+# misc
+/docgen_tmp/
+*.md.json
+*.todo.txt

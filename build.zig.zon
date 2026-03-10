@@ -1,0 +1,21 @@
+.{
+  .name = .mango,
+  .version = "0.0.2",
+  .fingerprint = 0x91e2b3046d3e5d60,
+  .minimum_zig_version = "0.15.2",
+  .dependencies = .{
+    .lmdbx = .{
+      .url = "https://github.com/theseyan/lmdbx-zig/archive/refs/tags/v0.3.0.tar.gz",
+      .hash = "lmdbx-0.2.3-WlIvzisyAwDtttPeNZHvRRtpwr86kbfuBPV4HGpcQgoD",
+    },
+    .crprintf = .{
+      .url = "https://github.com/themackabu/crprintf/archive/refs/heads/master.tar.gz",
+      .hash = "N-V-__8AANgoAQA80iTJDZCFaLe0UVIaEYMcxs1JlkE4VSn6",
+    },
+  },
+  .paths = .{
+    "build.zig",
+    "build.zig.zon",
+    "src",
+  },
+}

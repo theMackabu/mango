@@ -2,43 +2,57 @@
 
 ##
 
-Mango is a simple key value database meant for your cli. Helps you store values for your scripts.
+A simple key-value store for your CLI, backed by [libMDBX](https://libmdbx.dqdkfa.ru/). Helps you store values for your scripts.
 
 ### Quick Start
 
-See the [installation](#installation) section for how to install just on your computer. Try running `mango --version` to make sure that it's installed correctly.
-
 ```bash
-~ $ mango set hello world
+$ mango set hello world
 added key 'hello' with value 'world'
+
+$ mango get hello
+world
+
+$ mango list
+  hello · world
 ```
 
-Mango supports setting/removing values without any output, with the `-q` or `--quiet` argument
+Suppress output with `-s` / `--silent`:
 
 ```bash
-~ $ mango del hello -q
-# notice the lack of output
+$ mango del hello -s
 ```
 
-Mango also supports saving the entire store to a file
+Save the entire store to a CSV file:
 
 ```bash
-~ $ mango save file.txt
-saved store '~/.mango' to 'file.txt'
+$ mango save backup.csv
+saved store '~/.mango' to 'backup.csv'
 ```
 
-For more commands, check out `mango --help`
+Range query between keys:
+
+```bash
+$ mango range a z
+{"hello": "world", "foo": "bar"}
+```
+
+For all commands, run `mango --help`.
 
 ### Installation
 
-Pre-built binaries for Linux, MacOS, and Windows can be found on the [releases](https://github.com/exact-labs/mango/releases) page.
+#### From source
 
-#### Building
+Requires [Zig](https://ziglang.org/) 0.15.2+.
 
-- Clone the project `git clone https://github.com/exact-labs/mango.git`
-- Open a terminal in the project folder
-- Check if you have cargo (Rust's package manager) installed, just type in `cargo`
-- If cargo is installed, run `cargo build --release`
-- Put the executable into one of your PATH entries
-  - Linux: usually /bin/ or /usr/bin/
-  - Windows: C:\Windows\System32 is good for it but don't use windows
+```bash
+git clone https://github.com/themackabu/mango.git
+cd mango
+zig build -Doptimize=ReleaseFast
+```
+
+Install to `~/.local/bin`:
+
+```bash
+zig build install-local
+```
