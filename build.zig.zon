@@ -1,6 +1,6 @@
 .{
   .name = .mango,
-  .version = "0.0.2",
+  .version = "0.0.3",
   .fingerprint = 0x91e2b3046d3e5d60,
   .minimum_zig_version = "0.15.2",
   .dependencies = .{

@@ -105,12 +105,7 @@ pub fn main() !void {
   const db_path = path orelse try helpers.getDefaultKvPath(allocator);
   defer if (path == null) allocator.free(db_path);
 
-  const cmd = command orelse {
-    printHelp();
-    return;
-  };
-
-  switch (cmd) {
+  switch (command orelse .list) {
     .help => printHelp(),
     .version => try cli.printVersion(allocator),
     .get => {
