@@ -6,9 +6,9 @@ const helpers = @import("helpers.zig");
 const kv = @import("kv.zig");
 
 const Command = enum { 
-  get, set, del, list, 
+  get, set, del, list, count,
   save, range, prefix,
-  help, version 
+  reset, help, version 
 };
 
 fn parseCommand(arg: []const u8) ?Command {
@@ -17,9 +17,11 @@ fn parseCommand(arg: []const u8) ?Command {
     .{ "set",       .set },
     .{ "del",       .del },
     .{ "list",      .list },
+    .{ "count",     .count },
     .{ "save",      .save },
     .{ "range",     .range },
     .{ "prefix",    .prefix },
+    .{ "reset",     .reset },
     .{ "help",      .help },
     .{ "--help",    .help },
     .{ "-h",        .help },
@@ -37,6 +39,7 @@ const HelpEntry = struct { []const u8, []const u8 };
 const options: []const HelpEntry = &.{
   .{ "-p, --path <PATH>", "kv path (default: ~/.mango)" },
   .{ "-s, --silent",      "suppress/reduce output" },
+  .{ "-f, --force",       "skip confirmation prompts" },
   .{ "-h, --help",        "print help (this)" },
   .{ "-V, --version",     "print version" },
 };
@@ -46,9 +49,11 @@ const commands: []const HelpEntry = &.{
   .{ "set <key> <value>",  "set a value in the store" },
   .{ "del <key>",          "remove a value from the store" },
   .{ "list",               "list all values in the store" },
+  .{ "count",              "print the number of keys in the store" },
   .{ "save <filename>",    "save store to csv file" },
   .{ "range <start> <end>","range between values in the store" },
   .{ "prefix <prefix>",    "search keys by prefix" },
+  .{ "reset",               "clear all keys from the store" },
 };
 
 fn printHelp() void {
@@ -73,12 +78,18 @@ pub fn main() !void {
   const args = try std.process.argsAlloc(allocator);
   defer std.process.argsFree(allocator, args);
 
-  var silent = false;
+  const Flags = struct { silent: bool = false, force: bool = false };
+  var flags = Flags{};
   var path: ?[]const u8 = null;
   var command: ?Command = null;
   
   var cmd_args: std.ArrayListUnmanaged([]const u8) = .empty;
   defer cmd_args.deinit(allocator);
+
+  const flag_map = .{
+    .{ "-s", "--silent", "silent" },
+    .{ "-f", "--force", "force" },
+  };
 
   var i: usize = 1;
   while (i < args.len) : (i += 1) {
@@ -90,9 +101,12 @@ pub fn main() !void {
         cli.printf("<bold_red>error:</> --path requires a value\n", .{});
         std.process.exit(1);
       }
-    } else if (std.mem.eql(u8, arg, "-s") or std.mem.eql(u8, arg, "--silent")) {
-      silent = true;
-    } else if (command == null) {
+    } else if (inline for (flag_map) |entry| {
+      if (std.mem.eql(u8, arg, entry[0]) or std.mem.eql(u8, arg, entry[1])) {
+        @field(&flags, entry[2]) = true;
+        break true;
+      }
+    } else false) {} else if (command == null) {
       command = parseCommand(arg);
       if (command == null) {
         cli.printf("<bold_red>error:</> unknown command <yellow>'%s'</>\n", .{arg});
@@ -105,7 +119,8 @@ pub fn main() !void {
   const db_path = path orelse try helpers.getDefaultKvPath(allocator);
   defer if (path == null) allocator.free(db_path);
 
-  switch (command orelse .list) {
+  const default_cmd: Command = if (kv.hasKeys(db_path)) .list else .help;
+  switch (command orelse default_cmd) {
     .help => printHelp(),
     .version => try cli.printVersion(allocator),
     .get => {
@@ -129,7 +144,7 @@ pub fn main() !void {
         cli.printf("Unable to set <yellow>'%s'</>, is the store path correct?\n", .{cmd_args.items[0]});
         std.process.exit(1);
       };
-      if (!silent) {
+      if (!flags.silent) {
         cli.printf("<green>added key '%s' with value '%s'</>\n", .{ cmd_args.items[0], cmd_args.items[1] });
       }
     },
@@ -142,15 +157,25 @@ pub fn main() !void {
         cli.printf("Unable to remove <yellow>'%s'</>, does it exist?\n", .{cmd_args.items[0]});
         std.process.exit(1);
       };
-      if (!silent) {
+      if (!flags.silent) {
         cli.printf("<red>removed key '%s'</>\n", .{cmd_args.items[0]});
       }
     },
     .list => {
-      kv.list(allocator, db_path, silent) catch {
+      kv.list(allocator, db_path, flags.silent) catch {
         cli.printf("Unable to list all keys, is the store path correct?\n", .{});
         std.process.exit(1);
       };
+    },
+    .count => {
+      const n = kv.count(db_path) catch {
+        cli.printf("Unable to count keys, is the store path correct?\n", .{});
+        std.process.exit(1);
+      };
+      var buf: [4096]u8 = undefined;
+      var writer = std.fs.File.stdout().writer(&buf);
+      writer.interface.print("{d}\n", .{n}) catch {};
+      writer.interface.flush() catch {};
     },
     .save => {
       if (cmd_args.items.len < 1) {
@@ -161,7 +186,7 @@ pub fn main() !void {
         cli.printf("Unable to save keys to file, is the store path correct?\n", .{});
         std.process.exit(1);
       };
-      if (!silent) {
+      if (!flags.silent) {
         cli.printf("<green>saved store '%s' to '%s'</>\n", .{ db_path, cmd_args.items[0] });
       }
     },
@@ -184,6 +209,28 @@ pub fn main() !void {
         cli.printf("Unable to search by prefix, is the store path correct?\n", .{});
         std.process.exit(1);
       };
+    },
+    .reset => {
+      if (!flags.force) {
+        cli.printf("<yellow>are you sure you want to reset the store? [y/N]</> ", .{});
+        _ = cli.crprintf.fflush(cli.crprintf.stdout());
+        var buf: [256]u8 = undefined;
+        const stdin = std.fs.File.stdin();
+        const n = stdin.read(&buf) catch 0;
+        const line = std.mem.trimRight(u8, buf[0..n], "\r\n");
+        const confirmed = std.mem.eql(u8, line, "y") or std.mem.eql(u8, line, "Y");
+        if (!confirmed) {
+          cli.printf("aborted\n", .{});
+          std.process.exit(0);
+        }
+      }
+      kv.reset(db_path) catch {
+        cli.printf("Unable to reset store, is the store path correct?\n", .{});
+        std.process.exit(1);
+      };
+      if (!flags.silent) {
+        cli.printf("<red>store has been reset</>\n", .{});
+      }
     },
   }
 }

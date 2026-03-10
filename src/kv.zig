@@ -7,6 +7,39 @@ fn openEnv(path: []const u8) !lmdbx.Environment {
   return lmdbx.Environment.init(c_path, .{});
 }
 
+pub fn count(path: []const u8) !usize {
+  const env = try openEnv(path);
+  defer env.deinit() catch {};
+
+  const txn = try env.transaction(.{ .mode = .ReadOnly });
+  defer txn.abort() catch {};
+
+  var cur = try txn.cursor();
+  defer cur.deinit();
+
+  var n: usize = 0;
+  var key = try cur.goToFirst();
+  while (key != null) {
+    n += 1;
+    key = cur.goToNext() catch null;
+  }
+  return n;
+}
+
+pub fn hasKeys(path: []const u8) bool {
+  const env = openEnv(path) catch return false;
+  defer env.deinit() catch {};
+
+  const txn = env.transaction(.{ .mode = .ReadOnly }) catch return false;
+  defer txn.abort() catch {};
+
+  var cur = txn.cursor() catch return false;
+  defer cur.deinit();
+
+  const key = cur.goToFirst() catch return false;
+  return key != null;
+}
+
 pub fn get(allocator: std.mem.Allocator, path: []const u8, key: []const u8) ![]const u8 {
   const env = try openEnv(path);
   defer env.deinit() catch {};
@@ -121,6 +154,18 @@ pub fn prefix(allocator: std.mem.Allocator, path: []const u8, pfx: []const u8) !
   }
 
   try helpers.printJson(allocator, keys.items, values.items);
+}
+
+pub fn reset(path: []const u8) !void {
+  const env = try openEnv(path);
+  defer env.deinit() catch {};
+
+  const txn = try env.transaction(.{ .mode = .ReadWrite });
+  errdefer txn.abort() catch {};
+
+  const db = try txn.database(null, .{});
+  try db.drop(false);
+  try txn.commit();
 }
 
 pub fn save(allocator: std.mem.Allocator, path: []const u8, filename: []const u8) !void {
