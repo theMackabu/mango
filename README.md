@@ -2,57 +2,46 @@
 
 ##
 
-A simple key-value store for your CLI, backed by [libMDBX](https://libmdbx.dqdkfa.ru/). Helps you store values for your scripts.
-
-### Quick Start
+A simple key-value store for your CLI, backed by [libMDBX](https://libmdbx.dqdkfa.ru/).
 
 ```bash
 $ mango set hello world
 added key 'hello' with value 'world'
 
+$ mango set foo bar
+added key 'foo' with value 'bar'
+
 $ mango get hello
 world
 
 $ mango list
+  foo ··· bar
   hello · world
-```
 
-Suppress output with `-s` / `--silent`:
+$ mango count
+2
 
-```bash
-$ mango del hello -s
-```
+$ mango prefix he
+{"hello": "world"}
 
-Save the entire store to a CSV file:
+$ mango range a h
+{"foo": "bar"}
 
-```bash
 $ mango save backup.csv
 saved store '~/.mango' to 'backup.csv'
+
+$ mango del foo -s
+
+$ mango reset -f
 ```
 
-Range query between keys:
-
-```bash
-$ mango range a z
-{"hello": "world", "foo": "bar"}
-```
-
-For all commands, run `mango --help`.
-
-### Installation
-
-#### From source
+### Install
 
 Requires [Zig](https://ziglang.org/) 0.15.2+.
 
 ```bash
-git clone https://github.com/themackabu/mango.git
-cd mango
 zig build -Doptimize=ReleaseFast
+zig build install-local  # installs to ~/.local/bin
 ```
 
-Install to `~/.local/bin`:
-
-```bash
-zig build install-local
-```
+Run `mango -h` for all commands and options.
