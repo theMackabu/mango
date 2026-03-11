@@ -108,19 +108,20 @@ pub fn main() !void {
       }
     } else false) {} else if (command == null) {
       command = parseCommand(arg);
-      if (command == null) {
-        cli.printf("<bold_red>error:</> unknown command <yellow>'%s'</>\n", .{arg});
-        printHelp();
-        std.process.exit(1);
-      }
+      if (command == null) try cmd_args.append(allocator, arg);
     } else try cmd_args.append(allocator, arg);
   }
 
   const db_path = path orelse try helpers.getDefaultKvPath(allocator);
   defer if (path == null) allocator.free(db_path);
 
-  const default_cmd: Command = if (kv.hasKeys(db_path)) .list else .help;
-  switch (command orelse default_cmd) {
+  if (command == null) {
+    command = if (cmd_args.items.len > 0) .get 
+      else if (kv.hasKeys(db_path)) .list 
+      else .help;
+  }
+
+  switch (command.?) {
     .help => printHelp(),
     .version => try cli.printVersion(allocator),
     .get => {
