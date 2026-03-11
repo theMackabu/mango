@@ -49,7 +49,20 @@ pub fn printDotTable(allocator: std.mem.Allocator, keys: []const []const u8, val
   for (keys, values) |k, v| {
     try w.print("  {s} ", .{k});
     for (0..max_key - k.len + 1) |_| try w.writeAll("·");
-    try w.print(" {s}\n", .{v});
+
+    var line_count: usize = 1;
+    for (v) |c| {
+      if (c == '\n') line_count += 1;
+    }
+
+    const trimmed = std.mem.trimLeft(u8, v, " \t\n\r");
+    const is_json = trimmed.len > 0 and (trimmed[0] == '{' or trimmed[0] == '[');
+
+    if (is_json) try w.print(" JSON ({d} lines)\n", .{line_count})
+    else if (line_count > 1) {
+      const first_line = if (std.mem.indexOfScalar(u8, v, '\n')) |idx| v[0..idx] else v;
+      try w.print(" {s}\xe2\x80\xa6 ({d} lines)\n", .{ first_line, line_count });
+    } else try w.print(" {s}\n", .{v});
   }
 }
 
